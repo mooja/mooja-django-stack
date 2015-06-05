@@ -60,6 +60,9 @@
       - openssl
       - libssl-dev
       - libssl-doc
+      - libjpeg-dev 
+      - zlib1g-dev
+
 
   - name: Install Base Packages
     apt: name={{ item }} update_cache=yes force=yes state=installed cache_valid_time=3600
