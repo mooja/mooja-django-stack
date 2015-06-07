@@ -6,13 +6,15 @@
   sudo_user: root
   remote_user: vagrant
 
+  vars_files:
+    - env_vars/ssl.yml
+
   vars:
 
-    project_name: test-app
-    application_name: testapp
-    git_repo: https://github.com/mooja/ssip2.git
+    project_name: example-project
+    application_name: djangoproj
+    git_repo: https://github.com/mooja/mooja-django-stack.git
     git_branch: master
-
 
     # application settings
     virtualenv_path: "/webapps/{{ application_name }}"
@@ -33,6 +35,10 @@
     nginx_error_log_file: "{{ application_log_dir }}/nginx_error.log"
     nginx_static_dir: "{{ virtualenv_path }}/static/"
     nginx_media_dir: "{{ virtualenv_path }}/media/"
+    nginx_server_name: "{{ inventory_hostname }}"
+    ssl_src_dir: ssl_self_signed
+    ssl_dest_dir: /etc/ssl
+    ssl_key_password: password
     
     # gunicorn settings
     gunicorn_user: "{{ application_name }}"
@@ -41,104 +47,31 @@
     gunicorn_max_requests: 0
 
     # django settings
-    django_settings_file: "{{ application_name }}.settings.local"
+    django_settings_file: "{{ application_name }}.settings.development"
     django_secret_key: "akr2icmg1n8%z^3fe3c+)5d0(t^cy-2_25rrl35a7@!scna^1#"
     run_django_db_migrations: yes
     run_django_collectstatic: yes
 
+    # Django Environment variables
+    django_environment:
+      DJANGO_SETTINGS_MODULE: "{{ django_settings_file }}"
+      DJANGO_SECRET_KEY: "{{ django_secret_key }}"
+      SECRET_KEY: "{{ django_secret_key }}"
+      MEDIA_ROOT: "{{ nginx_media_dir }}"
+      STATIC_ROOT: "{{ nginx_static_dir }}"
+      DATABASE_USER: "{{ db_user }}"
+      DATABASE_PASSWORD: "{{ db_password }}"
+      DATABASE_URL: "postgres://{{ db_user }}:{{ db_password }}@127.0.0.1/{{ application_name }}"
+      EMAIL_HOST: "{{ email_host|default(omit) }}"
+      EMAIL_HOST_USER: "{{ email_host_user|default(omit) }}"
+      EMAIL_HOST_PASSWORD: "{{ email_host_password|default(omit) }}"
+      BROKER_URL: "{{ broker_url|default(omit) }}"
+
     # apt settings
     update_apt_cache: yes
 
-  tasks:
+  roles:
 
-  # setup base packages
-
-  - name: Ensure bash, OpenSSl, and libssl are the latest versions
-    apt: name={{ item }} update_cache=yes state=latest cache_valid_time=3600
-    with_items:
-      - bash
-      - openssl
-      - libssl-dev
-      - libssl-doc
-      - libjpeg-dev 
-      - zlib1g-dev
-
-
-  - name: Install Base Packages
-    apt: name={{ item }} update_cache=yes force=yes state=installed cache_valid_time=3600
-    with_items:
-      - build-essential
-      - ntp
-      - htop
-      - git
-      - libpq-dev
-      - python3-dev
-      - python3-pip
-      - python3-pycurl
-      - supervisor
-
-  - name: Install latest (Python3) pip
-    pip: name=pip executable=pip3 state=latest
-
-  - name: Install latest virtualenv
-    pip: name=virtualenv state=latest
-
-
-  # create application user and group
-
-  - name: Create the application user
-    user: name={{ application_name }} state=present
-
-  - name: Create the application group
-    group: name={{ gunicorn_group }} system=yes state=present
-
-  - name: Add the application user to the application group
-    user: name={{ gunicorn_user }} group={{ gunicorn_group }} state=present
-
-
-  # setup postgresql
-
-  - name: Install PostgreSQL
-    apt: name={{ item }} update_cache={{ update_apt_cache }} state=installed 
-      cache_valid_time=3600
-    with_items:
-      - postgresql
-      - postgresql-contrib
-      - python-psycopg2
-      - python3-psycopg2
-
-  - name: Ensure the PostgreSQL service is running
-    service: name=postgresql state=started enabled=yes
-
-  - name: Ensure database is created
-    sudo_user: postgres
-    postgresql_db: name={{ db_name }}
-                   encoding='UTF-8'
-                   lc_collate='en_US.UTF-8'
-                   lc_ctype='en_US.UTF-8'
-                   template='template0'
-                   state=present
-
-  - name: Ensure user has access to the database
-    sudo_user: postgres
-    postgresql_user: db={{ db_name }}
-                     name={{ db_user }}
-                     password={{ db_password }}
-                     priv=ALL
-                     state=present
-
-  - name: Ensure user does not have unnecessary privileges
-    sudo_user: postgres
-    postgresql_user: name={{ db_user }}
-                     role_attr_flags=NOSUPERUSER,NOCREATEDB
-                     state=present
-
-
-  # setup virtualenv
-  - include: setup_virtualenv.yml
-
-  # pull git repo
-  - include: setup_git_repo.yml
-
-  # setup django app
-  - include: setup_django_app.yml
+    - base
+    - db
+    - app
