@@ -2,7 +2,7 @@
 
 NAME="{{ application_name }}"
 DJANGODIR="{{ project_path }}"
-SOCKFILE={{ virtualenv_path }}/run/gunicorn.sock
+SOCKFILE={{ project_path }}/run/gunicorn.sock
 USER={{ gunicorn_user }}
 GROUP={{ gunicorn_group }}
 NUM_WORKERS={{ gunicorn_num_workers }}
